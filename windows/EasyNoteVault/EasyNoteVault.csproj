@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- 应用类型 -->
+    <OutputType>WinExe</OutputType>
+
+    <!-- 目标框架 -->
+    <TargetFramework>net6.0-windows</TargetFramework>
+
+    <!-- 启用 WPF -->
+    <UseWPF>true</UseWPF>
+
+    <!-- 程序名称 -->
+    <AssemblyName>EasyNoteVault</AssemblyName>
+
+    <!-- 发布设置（为 CI + 单文件 exe 准备） -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+
+    <!-- 单文件 -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
+    <!-- 版本（后期可由脚本自动改） -->
+    <Version>1.0.0</Version>
+
+    <!-- 编码 / 安全 -->
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
