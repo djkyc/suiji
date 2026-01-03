@@ -104,7 +104,7 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= 导出 =================
+        // ================= 导出（双空格分隔） =================
         private void Export_Click(object sender, RoutedEventArgs e)
         {
             string fileName = DateTime.Now.ToString("yyyyMMddHHmm") + ".txt";
@@ -117,19 +117,21 @@ namespace EasyNoteVault
 
             if (dlg.ShowDialog() != true) return;
 
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine("名称|网站|账号|密码|备注");
+            var sb = new StringBuilder();
+
+            // 表头（双空格）
+            sb.AppendLine("名称  网站  账号  密码  备注");
 
             foreach (var item in Items)
             {
                 sb.AppendLine(
-                    $"{item.Name}|{item.Url}|{item.Account}|{item.Password}|{item.Remark}");
+                    $"{item.Name}  {item.Url}  {item.Account}  {item.Password}  {item.Remark}");
             }
 
             File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
         }
 
-        // ================= 导入 =================
+        // ================= 导入（双空格解析） =================
         private void Import_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog dlg = new OpenFileDialog
@@ -140,9 +142,13 @@ namespace EasyNoteVault
             if (dlg.ShowDialog() != true) return;
 
             var lines = File.ReadAllLines(dlg.FileName, Encoding.UTF8);
+
             foreach (var line in lines.Skip(1)) // 跳过表头
             {
-                var parts = line.Split('|');
+                // 用「两个及以上空格」切分
+                var parts = line
+                    .Split(new[] { "  " }, StringSplitOptions.RemoveEmptyEntries);
+
                 if (parts.Length < 5) continue;
 
                 Items.Add(new VaultItem
