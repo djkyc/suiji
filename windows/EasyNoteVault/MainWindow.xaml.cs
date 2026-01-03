@@ -14,23 +14,21 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // 示例数据（可删）
-        Items.Add(new VaultItem
-        {
-            Name = "百度",
-            Url = "https://baidu.com",
-            Account = "test01",
-            Password = "123456",
-            Remark = "示例账号"
-        });
+        // 1️⃣ 启动时加载本地数据
+        var loaded = DataStore.Load();
+        foreach (var item in loaded)
+            Items.Add(item);
 
         VaultGrid.ItemsSource = Items;
 
-        // 单击复制
+        // 2️⃣ 单击复制
         VaultGrid.PreviewMouseLeftButtonUp += VaultGrid_PreviewMouseLeftButtonUp;
 
-        // 编辑完成检测重复
+        // 3️⃣ 编辑完成：检测重复 + 自动保存
         VaultGrid.CellEditEnding += VaultGrid_CellEditEnding;
+
+        // 4️⃣ 行删除 / 新增后也保存
+        Items.CollectionChanged += (_, _) => Save();
     }
 
     // =============================
@@ -46,15 +44,23 @@ public partial class MainWindow : Window
     }
 
     // =============================
-    // 编辑完成后检测网址重复
+    // 编辑完成：检测重复 + 保存
     // =============================
     private void VaultGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
     {
-        // 只检测“网站”这一列
-        if (e.Column.Header?.ToString() != "网站")
-            return;
+        if (e.Column.Header?.ToString() == "网站")
+            CheckDuplicateUrl(e.Row.Item as VaultItem);
 
-        if (e.Row.Item is not VaultItem current)
+        // 延迟保存（确保值已提交）
+        Dispatcher.InvokeAsync(Save);
+    }
+
+    // =============================
+    // 网址重复检测
+    // =============================
+    private void CheckDuplicateUrl(VaultItem? current)
+    {
+        if (current == null)
             return;
 
         var currentUrl = NormalizeUrl(current.Url);
@@ -83,7 +89,15 @@ public partial class MainWindow : Window
     }
 
     // =============================
-    // 网址标准化（关键）
+    // 保存数据
+    // =============================
+    private void Save()
+    {
+        DataStore.Save(Items);
+    }
+
+    // =============================
+    // 网址标准化
     // =============================
     private static string NormalizeUrl(string? url)
     {
@@ -91,7 +105,6 @@ public partial class MainWindow : Window
             return "";
 
         url = url.Trim().ToLower();
-
         if (url.EndsWith("/"))
             url = url.TrimEnd('/');
 
