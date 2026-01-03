@@ -2,10 +2,14 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "== Build EasyNoteVault =="
 
-dotnet restore EasyNoteVault/EasyNoteVault.csproj
+$root = Resolve-Path "$PSScriptRoot\.."
+$project = Join-Path $root "EasyNoteVault/EasyNoteVault.csproj"
 
-dotnet build EasyNoteVault/EasyNoteVault.csproj `
-    -c Release `
-    --no-restore
+if (-not (Test-Path $project)) {
+    throw "Project not found: $project"
+}
+
+dotnet restore $project
+dotnet build $project -c Release --no-restore
 
 Write-Host "Build finished successfully."
