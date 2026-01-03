@@ -11,12 +11,17 @@ jobs:
   release:
     runs-on: windows-latest
 
+    # 🔑 先把 secrets 映射成 env（这是关键）
+    env:
+      SIGN_CERT: ${{ secrets.SIGN_CERT }}
+      SIGN_PASSWORD: ${{ secrets.SIGN_PASSWORD }}
+
     steps:
       # 1. 拉取代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 安装 .NET（与你的 net8.0-windows 对齐）
+      # 2. 安装 .NET
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -25,41 +30,37 @@ jobs:
       # 3. 构建
       - name: Build
         shell: pwsh
-        run: |
-          windows/scripts/build.ps1
+        run: windows/scripts/build.ps1
 
-      # 4. 发布（生成 exe）
+      # 4. 发布
       - name: Publish
         shell: pwsh
-        run: |
-          windows/scripts/publish.ps1
+        run: windows/scripts/publish.ps1
 
-      # 5. 解码签名证书（Windows + PowerShell 正确方式）
-      #    如果你没配置 SIGN_CERT，这一步会自动跳过
+      # 5. 解码签名证书（只有在 SIGN_CERT 存在时才做）
       - name: Decode signing certificate
-        if: ${{ secrets.SIGN_CERT != '' }}
+        if: env.SIGN_CERT != ''
         shell: pwsh
         run: |
-          $bytes = [System.Convert]::FromBase64String("${{ secrets.SIGN_CERT }}")
+          $bytes = [System.Convert]::FromBase64String($env:SIGN_CERT)
           [System.IO.File]::WriteAllBytes("cert.pfx", $bytes)
 
-      # 6. 签名 exe（仅在有证书时执行）
+      # 6. 签名 exe（同样只在有证书时）
       - name: Sign executable
-        if: ${{ secrets.SIGN_CERT != '' }}
+        if: env.SIGN_CERT != ''
         shell: pwsh
         run: |
           windows/scripts/sign.ps1 `
             -ExePath artifacts/windows/EasyNoteVault.exe `
             -CertPath cert.pfx `
-            -CertPassword "${{ secrets.SIGN_PASSWORD }}"
+            -CertPassword $env:SIGN_PASSWORD
 
-      # 7. 整理发布文件（生成 dist/windows/*.zip）
+      # 7. 整理发布文件
       - name: Prepare release files
         shell: pwsh
-        run: |
-          windows/scripts/release.ps1
+        run: windows/scripts/release.ps1
 
-      # 8. 创建 git tag（手动发布一定要有 tag）
+      # 8. 创建 tag
       - name: Create git tag
         shell: pwsh
         run: |
