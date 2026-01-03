@@ -7,14 +7,16 @@ namespace EasyNoteVault;
 public static class DataStore
 {
     private static readonly string FilePath =
-        Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "data.json");
+        Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "data.enc");
 
     public static List<VaultItem> Load()
     {
         if (!File.Exists(FilePath))
             return new List<VaultItem>();
 
-        var json = File.ReadAllText(FilePath);
+        var encryptedBytes = File.ReadAllBytes(FilePath);
+        var json = CryptoService.Decrypt(encryptedBytes);
+
         return JsonSerializer.Deserialize<List<VaultItem>>(json)
                ?? new List<VaultItem>();
     }
@@ -25,6 +27,7 @@ public static class DataStore
             items,
             new JsonSerializerOptions { WriteIndented = true });
 
-        File.WriteAllText(FilePath, json);
+        var encryptedBytes = CryptoService.Encrypt(json);
+        File.WriteAllBytes(FilePath, encryptedBytes);
     }
 }
