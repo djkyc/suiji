@@ -14,18 +14,15 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
 
-    <!-- ===== 体积控制（WPF 安全项）===== -->
+    <!-- ===== 稳定性优先（WPF 推荐） ===== -->
 
-    <!-- ❗WPF 不允许 Trim，必须关闭 -->
-    <PublishTrimmed>false</PublishTrimmed>
+    <!-- ❌ 关闭 ReadyToRun（否则发布版可能直接起不来） -->
+    <PublishReadyToRun>false</PublishReadyToRun>
 
-    <!-- 关闭 ICU（安全，仍可减体积） -->
+    <!-- 关闭 ICU（安全） -->
     <InvariantGlobalization>true</InvariantGlobalization>
 
-    <!-- ReadyToRun 可开 -->
-    <PublishReadyToRun>true</PublishReadyToRun>
-
-    <!-- 其它 -->
+    <!-- Nullable 保留 -->
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
