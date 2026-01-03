@@ -1,4 +1,3 @@
-
 name: Manual Release (Windows)
 
 on:
@@ -13,45 +12,53 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # 1️⃣ 拉取代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ 安装 .NET（与你的 csproj net8.0-windows 对齐）
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
+      # 3️⃣ 构建
       - name: Build
         shell: pwsh
-        run: windows/scripts/build.ps1
+        run: |
+          windows/scripts/build.ps1
 
+      # 4️⃣ 发布（生成 exe）
       - name: Publish
         shell: pwsh
-        run: windows/scripts/publish.ps1
-
-      - name: Decode signing certificate
-        if: env.SIGN_CERT != ''
-        shell: pwsh
-        env:
-          SIGN_CERT: ${{ secrets.SIGN_CERT }}
         run: |
-          echo "$env:SIGN_CERT" | base64 -d > cert.pfx
+          windows/scripts/publish.ps1
 
-      - name: Sign executable
-        if: env.SIGN_CERT != ''
+      # 5️⃣ 解码签名证书（Windows + PowerShell 正确方式）
+      - name: Decode signing certificate
+        if: ${{ secrets.SIGN_CERT != '' }}
         shell: pwsh
-        env:
-          SIGN_PASSWORD: ${{ secrets.SIGN_PASSWORD }}
+        run: |
+          $bytes = [System.Convert]::FromBase64String("${{ secrets.SIGN_CERT }}")
+          [System.IO.File]::WriteAllBytes("cert.pfx", $bytes)
+
+      # 6️⃣ 签名 exe（只有配置了证书才会执行）
+      - name: Sign executable
+        if: ${{ secrets.SIGN_CERT != '' }}
+        shell: pwsh
         run: |
           windows/scripts/sign.ps1 `
             -ExePath artifacts/windows/EasyNoteVault.exe `
             -CertPath cert.pfx `
-            -CertPassword "$env:SIGN_PASSWORD"
+            -CertPassword "${{ secrets.SIGN_PASSWORD }}"
 
+      # 7️⃣ 整理发布文件（生成 zip 到 dist/windows）
       - name: Prepare release files
         shell: pwsh
-        run: windows/scripts/release.ps1
+        run: |
+          windows/scripts/release.ps1
 
+      # 8️⃣ 创建 git tag（手动发布必须有）
       - name: Create git tag
         shell: pwsh
         run: |
@@ -60,6 +67,7 @@ jobs:
           git tag ${{ inputs.release_version }}
           git push origin ${{ inputs.release_version }}
 
+      # 9️⃣ 创建 GitHub Release（一定不会再报 requires a tag）
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
