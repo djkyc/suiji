@@ -1,6 +1,47 @@
-
-buildscript {
-  repositories { google(); mavenCentral() }
-  dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+def versionNameFromTag() {
+    def tag = System.getenv("GITHUB_REF_NAME") ?: "0.0.0"
+    return tag.startsWith("v") ? tag.substring(1) : tag
 }
-allprojects { repositories { google(); mavenCentral() } }
+
+def versionCodeFromVersionName(String version) {
+    def parts = version.tokenize('.')
+    return parts[0].toInteger() * 10000 +
+           parts[1].toInteger() * 100 +
+           parts[2].toInteger()
+}
+
+android {
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.suiji.vault"
+
+        minSdk 21            // ✅ 最低可安装 Android 5.0
+        targetSdk 34
+
+        def vName = versionNameFromTag()
+        versionName vName
+        versionCode versionCodeFromVersionName(vName)
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(System.getenv("KEYSTORE_FILE"))
+            storePassword System.getenv("KEYSTORE_PASSWORD")
+            keyAlias System.getenv("KEY_ALIAS")
+            keyPassword System.getenv("KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
