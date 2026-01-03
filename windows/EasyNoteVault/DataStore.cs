@@ -5,13 +5,13 @@ using EasyNoteVault.Sync;
 
 namespace EasyNoteVault;
 
-public static class DataStore
+公共 static class DataStore
 {
     private static readonly string FilePath =
         Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "data.enc");
 
     // v1.0：WebDAV 配置（后面会做成设置界面）
-    private static readonly WebDavSyncService? SyncService =
+    private static readonly WebDavSyncService? SyncService = null;
         new WebDavSyncService(
             baseUrl: "https://dav.example.com/yourpath",
             username: "username",
