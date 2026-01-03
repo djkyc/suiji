@@ -1,14 +1,19 @@
-name: Build EasyNoteVault (Manual Only)
+name: Build EasyNoteVault (Manual Release)
 
 on:
-  workflow_dispatch:   # ⭐ 只允许手动运行
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. v1.0.0)"
+        required: true
+        default: "v1.0.0"
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      # 1️⃣ 拉取代码
+      # 1️⃣ 拉代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -18,11 +23,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      # 3️⃣ 强制清理（解决重复定义 / 幽灵文件问题）
+      # 3️⃣ 强制清理（关键，解决重复定义）
       - name: Clean workspace
         shell: pwsh
         run: |
-          Write-Host "== Cleaning workspace =="
+          Write-Host "== Clean workspace =="
           dotnet clean windows/EasyNoteVault/EasyNoteVault.csproj
           Remove-Item -Recurse -Force windows/EasyNoteVault/bin -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force windows/EasyNoteVault/obj -ErrorAction SilentlyContinue
@@ -42,11 +47,12 @@ jobs:
             -r win-x64 `
             --self-contained true `
             -p:PublishSingleFile=true `
-            -o dist
+            -p:Version=${{ inputs.version }} `
+            -o dist/${{ inputs.version }}
 
-      # 6️⃣ 上传构建产物
+      # 6️⃣ 上传构建产物（按版本）
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EasyNoteVault
-          path: dist
+          name: EasyNoteVault-${{ inputs.version }}
+          path: dist/${{ inputs.version }}
