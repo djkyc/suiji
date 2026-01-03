@@ -11,35 +11,45 @@ namespace EasyNoteVault
 {
     public partial class MainWindow : Window
     {
+        // ===============================
+        // 数据集合（唯一一处定义）
+        // ===============================
         public ObservableCollection<VaultItem> Items { get; } =
             new ObservableCollection<VaultItem>();
 
+        // ===============================
+        // 构造函数（唯一）
+        // ===============================
         public MainWindow()
         {
             InitializeComponent();
 
             VaultGrid.ItemsSource = Items;
 
-            // 窗口真正显示后再加载（避免启动阶段炸）
+            // 窗口显示完成后再加载数据（避免启动期异常）
             Loaded += MainWindow_Loaded;
 
-            // 左键复制
+            // 事件绑定
             VaultGrid.PreviewMouseLeftButtonUp += VaultGrid_PreviewMouseLeftButtonUp;
-
-            // 编辑完成检测重复 + 自动保存
             VaultGrid.CellEditEnding += VaultGrid_CellEditEnding;
         }
 
         // ===============================
-        // 启动后自动加载（解密 data.enc）
+        // 启动后加载加密数据
         // ===============================
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            var loaded = AutoStore.Load();
-            Items.Clear();
-
-            foreach (var item in loaded)
-                Items.Add(item);
+            try
+            {
+                var loaded = AutoStore.Load();
+                Items.Clear();
+                foreach (var item in loaded)
+                    Items.Add(item);
+            }
+            catch
+            {
+                // 加载失败时不阻断 UI
+            }
         }
 
         // ===============================
@@ -77,7 +87,7 @@ namespace EasyNoteVault
         }
 
         // ===============================
-        // 右键菜单：粘贴（真正写入并保存）
+        // 右键粘贴（真正写入并保存）
         // ===============================
         private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
         {
@@ -144,7 +154,7 @@ namespace EasyNoteVault
                 }
             }
 
-            // 延迟保存，确保值已提交
+            // 延迟保存，确保编辑已提交
             Dispatcher.InvokeAsync(() => AutoStore.Save(Items));
         }
 
@@ -229,7 +239,7 @@ namespace EasyNoteVault
     }
 
     // ===============================
-    // 数据模型
+    // 数据模型（唯一一处定义）
     // ===============================
     public class VaultItem
     {
