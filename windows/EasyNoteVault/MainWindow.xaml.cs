@@ -14,10 +14,9 @@ namespace EasyNoteVault
         {
             InitializeComponent();
 
-            // 绑定数据源
             VaultGrid.ItemsSource = Items;
 
-            // 示例数据（你可以随时删除）
+            // 示例数据
             Items.Add(new VaultItem
             {
                 Name = "示例",
@@ -27,7 +26,7 @@ namespace EasyNoteVault
                 Remark = "这是示例数据"
             });
 
-            // 单击复制
+            // 左键单击复制
             VaultGrid.PreviewMouseLeftButtonUp += VaultGrid_PreviewMouseLeftButtonUp;
 
             // 编辑完成检测重复
@@ -35,7 +34,7 @@ namespace EasyNoteVault
         }
 
         // ==================================================
-        // 单击复制（网站 / 账号 / 密码）+ 提示
+        // 左键单击复制 + 提示
         // ==================================================
         private void VaultGrid_PreviewMouseLeftButtonUp(
             object sender,
@@ -55,13 +54,63 @@ namespace EasyNoteVault
         }
 
         // ==================================================
-        // 编辑完成：检测网址重复
+        // 右键菜单：粘贴
+        // ==================================================
+        private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (!Clipboard.ContainsText())
+                return;
+
+            var text = Clipboard.GetText();
+
+            // 如果没有选中单元格，直接返回
+            if (VaultGrid.CurrentCell.Item == null)
+                return;
+
+            // 如果选中的是“新行”，先创建一行
+            if (VaultGrid.CurrentCell.Item == CollectionView.NewItemPlaceholder)
+            {
+                var newItem = new VaultItem();
+                Items.Add(newItem);
+                VaultGrid.CurrentCell = new DataGridCellInfo(
+                    newItem,
+                    VaultGrid.CurrentCell.Column);
+            }
+
+            if (VaultGrid.CurrentCell.Item is VaultItem item)
+            {
+                var column = VaultGrid.CurrentCell.Column?.Header?.ToString();
+
+                switch (column)
+                {
+                    case "名称":
+                        item.Name = text;
+                        break;
+                    case "网站":
+                        item.Url = text;
+                        break;
+                    case "账号":
+                        item.Account = text;
+                        break;
+                    case "密码":
+                        item.Password = text;
+                        break;
+                    case "备注":
+                        item.Remark = text;
+                        break;
+                }
+
+                VaultGrid.Items.Refresh();
+            }
+        }
+
+        // ==================================================
+        // 编辑完成：网址重复检测
         // ==================================================
         private void VaultGrid_CellEditEnding(
             object? sender,
             DataGridCellEditEndingEventArgs e)
         {
-            // 只检测“网站”这一列
             if (e.Column.Header?.ToString() != "网站")
                 return;
 
@@ -94,7 +143,7 @@ namespace EasyNoteVault
         }
 
         // ==================================================
-        // 网址标准化（用于重复判断）
+        // 网址标准化
         // ==================================================
         private static string NormalizeUrl(string? url)
         {
@@ -102,7 +151,6 @@ namespace EasyNoteVault
                 return "";
 
             url = url.Trim().ToLower();
-
             if (url.EndsWith("/"))
                 url = url.TrimEnd('/');
 
@@ -111,7 +159,7 @@ namespace EasyNoteVault
     }
 
     // ==================================================
-    // 数据模型（纯 UI，不含逻辑）
+    // 数据模型
     // ==================================================
     public class VaultItem
     {
