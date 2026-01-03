@@ -12,11 +12,30 @@
 
 ## 仓库结构
 ```
-suiji-vault/
-├─ windows/                # WinForms (.NET 8)
-├─ android/                # Android Studio 工程（Kotlin）
-├─ .github/workflows/      # GitHub Actions 自动发布
-└─ README.md
+EasyNoteVault
+│
+├── .github
+│   └── workflows
+│       └── build.yml          ← GitHub Actions 自动打包
+│
+├── EasyNoteVault
+│   ├── EasyNoteVault.csproj
+│   ├── App.xaml
+│   ├── App.xaml.cs
+│   ├── MainWindow.xaml
+│   ├── MainWindow.xaml.cs
+│   │
+│   ├── Models
+│   │   └── AccountItem.cs
+│   │
+│   ├── Services
+│   │   ├── CryptoService.cs
+│   │   ├── DataService.cs
+│   │   └── Sync
+│   │       └── ISyncService.cs   ← 安卓/WebDAV 预留
+│
+└── README.md
+
 ```
 
 ## 发布
