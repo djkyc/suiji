@@ -20,15 +20,16 @@
                        FontWeight="Bold"
                        DockPanel.Dock="Left"/>
 
-            <!-- 搜索框（WPF 兼容） -->
-            <TextBox x:Name="SearchBox"
-                     Width="250"
-                     Height="28"
-                     Margin="10,0,0,0"
-                     DockPanel.Dock="Right"
-                     VerticalContentAlignment="Center"
-                     TextChanged="SearchBox_TextChanged"
-                     ToolTip="搜索（名称 / 网站 / 账号 / 备注）"/>
+            <StackPanel Orientation="Horizontal"
+                        DockPanel.Dock="Right">
+                <Button Content="导入"
+                        Width="80"
+                        Margin="0,0,5,0"
+                        Click="Import_Click"/>
+                <Button Content="导出"
+                        Width="80"
+                        Click="Export_Click"/>
+            </StackPanel>
         </DockPanel>
 
         <!-- 表格 -->
