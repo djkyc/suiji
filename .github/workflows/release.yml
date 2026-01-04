@@ -3,84 +3,50 @@ name: Manual Release (Windows)
 on:
   workflow_dispatch:
     inputs:
-      release_version:
-        description: "Release version (e.g. v1.0.0)"
+      version:
+        description: "Release version (例如 v0.3.1)"
         required: true
-
-# 🔑 关键：允许写仓库（解决 403）
-permissions:
-  contents: write
 
 jobs:
   release:
     runs-on: windows-latest
 
-    # 把 secrets 映射成 env，供 if 判断使用
-    env:
-      SIGN_CERT: ${{ secrets.SIGN_CERT }}
-      SIGN_PASSWORD: ${{ secrets.SIGN_PASSWORD }}
-
     steps:
-      # 1️⃣ Checkout（带 token）
+      # 1️⃣ 拉取代码
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # 必须，tag push 需要完整历史
 
-      # 2️⃣ Setup .NET
+      # 2️⃣ 安装 .NET SDK
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      # 3️⃣ Build
+      # 3️⃣ Build（使用你已有的脚本）
       - name: Build
         shell: pwsh
-        run: windows/scripts/build.ps1
+        run: |
+          windows/scripts/build.ps1
 
-      # 4️⃣ Publish
+      # 4️⃣ Publish（使用你已有的脚本）
       - name: Publish
         shell: pwsh
-        run: windows/scripts/publish.ps1
-
-      # 5️⃣ Decode signing cert（可选）
-      - name: Decode signing certificate
-        if: env.SIGN_CERT != ''
-        shell: pwsh
         run: |
-          $bytes = [System.Convert]::FromBase64String($env:SIGN_CERT)
-          [System.IO.File]::WriteAllBytes("cert.pfx", $bytes)
+          windows/scripts/publish.ps1
 
-      # 6️⃣ Sign exe（自动找 signtool，找不到就跳过）
-      - name: Sign executable
-        if: env.SIGN_CERT != ''
-        shell: pwsh
-        run: |
-          windows/scripts/sign.ps1 `
-            -ExePath artifacts/windows/EasyNoteVault.exe `
-            -CertPath cert.pfx `
-            -CertPassword $env:SIGN_PASSWORD
-
-      # 7️⃣ Prepare release files
+      # 5️⃣ 准备发布文件（打包 zip）
       - name: Prepare release files
         shell: pwsh
-        run: windows/scripts/release.ps1
-
-      # 8️⃣ Create git tag（现在不会 403 了）
-      - name: Create git tag
-        shell: pwsh
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag ${{ inputs.release_version }}
-          git push origin ${{ inputs.release_version }}
+          windows/scripts/release.ps1
 
-      # 9️⃣ Create GitHub Release
+      # 6️⃣ 创建 GitHub Release（只在手动触发时）
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_version }}
-          files: dist/windows/**/*.zip
-          overwrite_files: true
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          files: |
+            dist/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
