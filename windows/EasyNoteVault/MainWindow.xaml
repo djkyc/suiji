@@ -17,7 +17,7 @@
         <DockPanel Margin="0,0,0,10"
                    LastChildFill="False">
 
-            <TextBlock Text="EasyNoteVault"
+            <TextBlock Text="EasyNoteVault(中文名-随记)"
                        FontSize="22"
                        FontWeight="Bold"
                        DockPanel.Dock="Left"/>
