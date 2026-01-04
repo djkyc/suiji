@@ -10,7 +10,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- 顶部区域 -->
@@ -54,7 +53,7 @@
         <DataGrid x:Name="VaultGrid"
                   Grid.Row="1"
                   AutoGenerateColumns="False"
-                  CanUserAddRows="True"
+                  CanUserAddRows="False"
                   CanUserDeleteRows="True"
                   IsReadOnly="False"
                   SelectionUnit="Cell"
@@ -92,13 +91,5 @@
                                     Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
-
-        <!-- 底部 -->
-        <Button Grid.Row="2"
-                Content="＋ 新增一行"
-                Width="120"
-                Height="32"
-                Margin="0,10,0,0"
-                Click="AddRow_Click"/>
     </Grid>
 </Window>
