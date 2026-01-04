@@ -1,7 +1,9 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq; // ✅ 修复：ToList 扩展方法
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
