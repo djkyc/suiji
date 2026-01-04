@@ -5,16 +5,15 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
 
-    <!-- 发布配置：稳定第一 -->
+    <!-- ⭐ 应用图标 -->
+    <ApplicationIcon>Assets\favicon.ico</ApplicationIcon>
+
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
 
-    <!-- 重要：不要 Trim / ReadyToRun -->
     <PublishTrimmed>false</PublishTrimmed>
     <PublishReadyToRun>false</PublishReadyToRun>
-
-    <Nullable>disable</Nullable>
   </PropertyGroup>
 
 </Project>
