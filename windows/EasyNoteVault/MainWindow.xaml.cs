@@ -29,6 +29,9 @@ namespace EasyNoteVault
 
             Loaded += (_, _) => LoadData();
             Closing += (_, _) => SaveData();
+
+            // 关键：重复检测
+            VaultGrid.CellEditEnding += VaultGrid_CellEditEnding;
         }
 
         // ================= 加载 / 保存 =================
@@ -93,7 +96,7 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= 左键单击复制（恢复） =================
+        // ================= 左键复制 =================
         private void VaultGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (e.OriginalSource is TextBlock tb &&
@@ -107,17 +110,21 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= 右键粘贴（保持） =================
+        // ================= 右键粘贴 =================
         private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (!Clipboard.ContainsText()) return;
+            if (!Clipboard.ContainsText())
+                return;
+
             if (VaultGrid.CurrentCell.Item == null ||
-                VaultGrid.CurrentCell.Column == null) return;
+                VaultGrid.CurrentCell.Column == null)
+                return;
 
             VaultGrid.BeginEdit();
 
             var item = VaultGrid.CurrentCell.Item as VaultItem;
-            if (item == null) return;
+            if (item == null)
+                return;
 
             string text = Clipboard.GetText();
             string col = VaultGrid.CurrentCell.Column.Header.ToString();
@@ -132,7 +139,7 @@ namespace EasyNoteVault
             VaultGrid.CommitEdit(DataGridEditingUnit.Row, true);
         }
 
-        // ================= 🔥 重复网址提示（恢复） =================
+        // ================= 🔥 重复网址：禁止 + 定位 =================
         private void VaultGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
             if (e.Column.Header.ToString() != "网站")
@@ -142,105 +149,37 @@ namespace EasyNoteVault
             if (current == null)
                 return;
 
-            string currentUrl = NormalizeUrl(current.Url);
-            if (string.IsNullOrEmpty(currentUrl))
+            string newUrl = NormalizeUrl(current.Url);
+            if (string.IsNullOrEmpty(newUrl))
                 return;
 
-            var duplicates = AllItems
-                .Where(x => x != current &&
-                            NormalizeUrl(x.Url) == currentUrl)
-                .ToList();
+            // 查找第一个重复项
+            var duplicate = AllItems
+                .FirstOrDefault(x =>
+                    x != current &&
+                    NormalizeUrl(x.Url) == newUrl);
 
-            if (duplicates.Count > 0)
+            if (duplicate != null)
             {
+                // 回滚当前输入
+                current.Url = string.Empty;
+
                 MessageBox.Show(
-                    $"网站重复：\n{current.Url}\n\n已存在 {duplicates.Count} 条记录",
-                    "重复提示",
+                    $"该网站已存在，不能重复添加兄弟：\n{duplicate.Url}",
+                    "重复网址",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
-            }
-        }
 
-        // ================= 导出 =================
-        private void Export_Click(object sender, RoutedEventArgs e)
-        {
-            string fileName = DateTime.Now.ToString("yyyyMMddHH") + ".txt";
+                // 定位到重复行
+                VaultGrid.SelectedItem = duplicate;
+                VaultGrid.ScrollIntoView(duplicate);
 
-            SaveFileDialog dlg = new SaveFileDialog
-            {
-                FileName = fileName,
-                Filter = "文本文件 (*.txt)|*.txt"
-            };
-
-            if (dlg.ShowDialog() != true) return;
-
-            var sb = new StringBuilder();
-            sb.AppendLine("名称  网站  账号  密码  备注");
-
-            foreach (var v in AllItems)
-            {
-                sb.AppendLine(
-                    $"{v.Name}  {v.Url}  {v.Account}  {v.Password}  {v.Remark}");
-            }
-
-            File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
-        }
-
-        // ================= 导入 =================
-        private void Import_Click(object sender, RoutedEventArgs e)
-        {
-            OpenFileDialog dlg = new OpenFileDialog
-            {
-                Filter = "文本文件 (*.txt)|*.txt|JSON 文件 (*.json)|*.json"
-            };
-
-            if (dlg.ShowDialog() != true) return;
-
-            string ext = Path.GetExtension(dlg.FileName).ToLower();
-            if (ext == ".txt") ImportTxt(dlg.FileName);
-            else if (ext == ".json") ImportJson(dlg.FileName);
-        }
-
-        private void ImportTxt(string path)
-        {
-            var lines = File.ReadAllLines(path, Encoding.UTF8);
-
-            foreach (var line in lines.Skip(1))
-            {
-                var parts = line.Split(new[] { "  " }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 5) continue;
-
-                var v = new VaultItem
+                // 强制取消本次编辑
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    Name = parts[0],
-                    Url = parts[1],
-                    Account = parts[2],
-                    Password = parts[3],
-                    Remark = parts[4]
-                };
-
-                AllItems.Add(v);
-                ViewItems.Add(v);
-            }
-        }
-
-        private void ImportJson(string path)
-        {
-            try
-            {
-                var json = File.ReadAllText(path, Encoding.UTF8);
-                var list = JsonSerializer.Deserialize<VaultItem[]>(json);
-                if (list == null) return;
-
-                foreach (var v in list)
-                {
-                    AllItems.Add(v);
-                    ViewItems.Add(v);
-                }
-            }
-            catch
-            {
-                MessageBox.Show("JSON 文件格式不正确");
+                    VaultGrid.CancelEdit(DataGridEditingUnit.Cell);
+                    VaultGrid.CancelEdit(DataGridEditingUnit.Row);
+                }));
             }
         }
 
