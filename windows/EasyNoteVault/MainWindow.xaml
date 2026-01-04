@@ -20,6 +20,7 @@
                        FontWeight="Bold"
                        DockPanel.Dock="Left"/>
 
+            <!-- 搜索框（WPF 兼容） -->
             <TextBox x:Name="SearchBox"
                      Width="250"
                      Height="28"
@@ -27,7 +28,7 @@
                      DockPanel.Dock="Right"
                      VerticalContentAlignment="Center"
                      TextChanged="SearchBox_TextChanged"
-                     PlaceholderText="搜索…"/>
+                     ToolTip="搜索（名称 / 网站 / 账号 / 备注）"/>
         </DockPanel>
 
         <!-- 表格 -->
