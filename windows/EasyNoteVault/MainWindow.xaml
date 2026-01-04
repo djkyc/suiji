@@ -19,7 +19,7 @@
                    LastChildFill="False">
 
             <!-- 左侧标题 -->
-            <TextBlock Text="EasyNoteVault"
+            <TextBlock Text="EasyNoteVault-随记"
                        FontSize="22"
                        FontWeight="Bold"
                        DockPanel.Dock="Left"/>
