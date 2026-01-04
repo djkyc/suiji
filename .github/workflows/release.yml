@@ -7,6 +7,10 @@ on:
         description: "Release version (例如 v0.1)"
         required: true
 
+# 🔑 关键：允许 GitHub Actions 写仓库（创建 Release）
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: windows-latest
@@ -22,25 +26,25 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      # 3️⃣ Build（使用你已有的脚本）
+      # 3️⃣ Build
       - name: Build
         shell: pwsh
         run: |
           windows/scripts/build.ps1
 
-      # 4️⃣ Publish（使用你已有的脚本）
+      # 4️⃣ Publish
       - name: Publish
         shell: pwsh
         run: |
           windows/scripts/publish.ps1
 
-      # 5️⃣ 准备发布文件（打包 zip）
+      # 5️⃣ 准备发布文件（zip）
       - name: Prepare release files
         shell: pwsh
         run: |
           windows/scripts/release.ps1
 
-      # 6️⃣ 创建 GitHub Release（只在手动触发时）
+      # 6️⃣ 创建 GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
