@@ -4,10 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (例如 v0.1)"
+        description: "Release version (例如 v1.6)"
         required: true
 
-# 允许 Actions 创建 Release
 permissions:
   contents: write
 
@@ -32,7 +31,7 @@ jobs:
         run: |
           windows/scripts/build.ps1
 
-      # 4️⃣ Publish（把版本号写进程序集）
+      # 4️⃣ Publish（写入程序集版本号）
       - name: Publish
         shell: pwsh
         run: |
@@ -43,19 +42,35 @@ jobs:
             /p:PublishSingleFile=true `
             /p:AssemblyInformationalVersion=${{ inputs.version }}
 
-      # 5️⃣ Release 打包（完全交给你已有的脚本）
+      # 5️⃣ Release 打包（生成 EasyNoteVault-windows.zip）
       - name: Prepare release package
         shell: pwsh
         run: |
           windows/scripts/release.ps1
 
-      # 6️⃣ 创建 GitHub Release（上传脚本生成的 zip）
+      # 6️⃣ 重命名 zip，加上版本号
+      - name: Rename release zip with version
+        shell: pwsh
+        run: |
+          $src = "dist/EasyNoteVault-windows.zip"
+          $dst = "dist/EasyNoteVault-windows-${{ inputs.version }}.zip"
+
+          if (-not (Test-Path $src)) {
+            throw "Release zip not found: $src"
+          }
+
+          Rename-Item -Path $src -NewName ("EasyNoteVault-windows-${{ inputs.version }}.zip")
+
+          Write-Host "Renamed release package to:"
+          Write-Host $dst
+
+      # 7️⃣ 创建 GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.version }}
           files: |
-            dist/*.zip
+            dist/EasyNoteVault-windows-${{ inputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
