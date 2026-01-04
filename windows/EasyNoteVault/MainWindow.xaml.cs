@@ -19,23 +19,29 @@ namespace EasyNoteVault
         private ObservableCollection<VaultItem> AllItems = new ObservableCollection<VaultItem>();
         private ObservableCollection<VaultItem> ViewItems = new ObservableCollection<VaultItem>();
 
+        private bool _maintaining = false;
+
         public MainWindow()
         {
             InitializeComponent();
 
             VaultGrid.ItemsSource = ViewItems;
 
-            Loaded += (_, _) => LoadData();
+            Loaded += (_, _) =>
+            {
+                LoadData();
+                MaintainTrailingRows(); // ✅ 启动后保证尾部两行空白
+            };
 
             Closing += (_, _) =>
             {
                 ForceCommitGridEdits();
-                SaveData();
+                SaveData(); // ✅ 保存时会自动过滤空白行
             };
 
             VaultGrid.PreviewMouseLeftButtonUp += VaultGrid_PreviewMouseLeftButtonUp;
 
-            // ✅ 右键点哪格就选中哪格（否则 CurrentCell 不对）
+            // ✅ 右键点哪格选哪格（否则 CurrentCell 不对）
             VaultGrid.PreviewMouseRightButtonDown += VaultGrid_PreviewMouseRightButtonDown;
 
             VaultGrid.CellEditEnding += VaultGrid_CellEditEnding;
@@ -107,6 +113,56 @@ namespace EasyNoteVault
             }
         }
 
+        // ================= 空行判定 + 维护尾部空行 =================
+        private static bool IsEmptyRow(VaultItem v)
+        {
+            return string.IsNullOrWhiteSpace(v.Name)
+                && string.IsNullOrWhiteSpace(v.Url)
+                && string.IsNullOrWhiteSpace(v.Account)
+                && string.IsNullOrWhiteSpace(v.Password)
+                && string.IsNullOrWhiteSpace(v.Remark);
+        }
+
+        private void EnsureTrailingBlankRows(int count)
+        {
+            // 1) 计算尾部空行数量
+            int trailing = 0;
+            for (int i = AllItems.Count - 1; i >= 0; i--)
+            {
+                if (IsEmptyRow(AllItems[i])) trailing++;
+                else break;
+            }
+
+            // 2) 多余的尾部空行裁剪到 count（避免越用越多空行）
+            while (trailing > count && AllItems.Count > 0)
+            {
+                AllItems.RemoveAt(AllItems.Count - 1);
+                trailing--;
+            }
+
+            // 3) 不足则补齐
+            while (trailing < count)
+            {
+                AllItems.Add(new VaultItem());
+                trailing++;
+            }
+        }
+
+        private void MaintainTrailingRows()
+        {
+            if (_maintaining) return;
+            _maintaining = true;
+            try
+            {
+                EnsureTrailingBlankRows(2);
+                RefreshView();
+            }
+            finally
+            {
+                _maintaining = false;
+            }
+        }
+
         // ================= 加载 / 保存 =================
         private void LoadData()
         {
@@ -122,7 +178,10 @@ namespace EasyNoteVault
         private void SaveData()
         {
             ForceCommitGridEdits();
-            DataStore.Save(AllItems);
+
+            // ✅ 不保存空白行（否则 data.enc 会越来越多空记录）
+            var toSave = new ObservableCollection<VaultItem>(AllItems.Where(x => !IsEmptyRow(x)));
+            DataStore.Save(toSave);
         }
 
         // ================= 搜索 =================
@@ -142,7 +201,7 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= ✅ 右键粘贴（没选中行时也能自动新建） =================
+        // ================= ✅ 右键粘贴：粘贴后自动补回尾部两行空白 =================
         private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (!Clipboard.ContainsText()) return;
@@ -150,33 +209,28 @@ namespace EasyNoteVault
             VaultGrid.Focus();
             ForceCommitGridEdits();
 
-            var colObj = VaultGrid.CurrentCell.Column;
+            var colObj = VaultGrid.CurrentCell.Column ?? GetColumnByHeader("名称");
             if (colObj == null) return;
 
             string col = colObj.Header?.ToString() ?? "";
             string text = Clipboard.GetText();
 
+            // ✅ 取当前行；如果没选中行，就用最后一条空白行
             VaultItem item;
-
             if (VaultGrid.CurrentCell.Item is VaultItem vi)
             {
                 item = vi;
             }
             else
             {
-                // ✅ 没有有效行（比如空表），自动创建一条
-                item = new VaultItem();
-                AllItems.Add(item);
-
-                if (!string.IsNullOrWhiteSpace(SearchBox.Text))
-                    SearchBox.Text = "";
-
-                RefreshView();
+                MaintainTrailingRows();
+                item = AllItems.Last(); // 一定存在
                 VaultGrid.SelectedItem = item;
                 VaultGrid.ScrollIntoView(item);
                 VaultGrid.CurrentCell = new DataGridCellInfo(item, colObj);
             }
 
+            // 写入
             if (col == "网站")
             {
                 if (!TrySetUrl(item, text))
@@ -188,16 +242,19 @@ namespace EasyNoteVault
             else if (col == "备注") item.Remark = text;
 
             ForceCommitGridEdits();
-            RefreshView();
+
+            // ✅ 粘贴后：补回尾部两行空白 + 刷新 + 保存
+            MaintainTrailingRows();
             SaveData();
         }
 
-        // ================= 单元格变化后台提交保存 =================
+        // ================= 单元格变化后台保存 =================
         private void VaultGrid_CurrentCellChanged(object? sender, EventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ForceCommitGridEdits();
+                MaintainTrailingRows();
                 SaveData();
             }), DispatcherPriority.Background);
         }
@@ -225,12 +282,12 @@ namespace EasyNoteVault
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ForceCommitGridEdits();
-                RefreshView();
+                MaintainTrailingRows();
                 SaveData();
             }), DispatcherPriority.Background);
         }
 
-        // ================= 🔥 导入 =================
+        // ================= 🔥 导入 / 导出 =================
         private void Import_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog dlg = new OpenFileDialog
@@ -245,53 +302,15 @@ namespace EasyNoteVault
             if (ext == ".txt") ImportTxt(dlg.FileName);
             else if (ext == ".json") ImportJson(dlg.FileName);
 
-            // ✅ 导入后：自动在末尾追加一个空白行（如果末尾已经是空行就不再加）
-            EnsureTrailingBlankRowAfterImport();
-
-            RefreshView();
+            MaintainTrailingRows();
             SaveData();
-
-            // ✅ 导入后定位到末尾空行的“名称”列，方便继续填
-            var last = AllItems.LastOrDefault();
-            if (last != null)
-                LocateItemAndFocusCell(last, "名称");
         }
 
-        private void EnsureTrailingBlankRowAfterImport()
-        {
-            if (AllItems.Count == 0)
-            {
-                AllItems.Add(new VaultItem());
-                return;
-            }
-
-            var last = AllItems.Last();
-            if (!IsEmptyRow(last))
-            {
-                AllItems.Add(new VaultItem());
-            }
-
-            // 如果用户正在搜索，会看不到空行；导入后清空搜索更符合“继续录入”
-            if (!string.IsNullOrWhiteSpace(SearchBox.Text))
-                SearchBox.Text = "";
-        }
-
-        private static bool IsEmptyRow(VaultItem v)
-        {
-            return string.IsNullOrWhiteSpace(v.Name)
-                && string.IsNullOrWhiteSpace(v.Url)
-                && string.IsNullOrWhiteSpace(v.Account)
-                && string.IsNullOrWhiteSpace(v.Password)
-                && string.IsNullOrWhiteSpace(v.Remark);
-        }
-
-        // ================= 🔥 导出 =================
         private void Export_Click(object sender, RoutedEventArgs e)
         {
             ForceCommitGridEdits();
 
             string fileName = DateTime.Now.ToString("yyyyMMddHH") + ".txt";
-
             SaveFileDialog dlg = new SaveFileDialog
             {
                 FileName = fileName,
@@ -304,7 +323,7 @@ namespace EasyNoteVault
             var sb = new StringBuilder();
             sb.AppendLine("名称  网站  账号  密码  备注");
 
-            // ✅ 导出时跳过全空行（避免导入后那条空白行写进文件）
+            // ✅ 导出跳过空白行
             foreach (var v in AllItems.Where(x => !IsEmptyRow(x)))
             {
                 sb.AppendLine($"{v.Name}  {v.Url}  {v.Account}  {v.Password}  {v.Remark}");
@@ -313,7 +332,6 @@ namespace EasyNoteVault
             File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
         }
 
-        // ================= 导入实现 =================
         private void ImportTxt(string path)
         {
             var lines = File.ReadAllLines(path, Encoding.UTF8);
