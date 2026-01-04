@@ -7,7 +7,7 @@ on:
         description: "Release version (例如 v0.1)"
         required: true
 
-# 🔑 关键：允许 GitHub Actions 写仓库（创建 Release）
+# 允许 Actions 创建 Release
 permissions:
   contents: write
 
@@ -26,23 +26,31 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      # 3️⃣ Build
+      # 3️⃣ Build（你已有的脚本）
       - name: Build
         shell: pwsh
         run: |
           windows/scripts/build.ps1
 
-      # 4️⃣ Publish
+      # 4️⃣ Publish（关键：把版本号写进程序集）
       - name: Publish
         shell: pwsh
         run: |
-          windows/scripts/publish.ps1
+          dotnet publish windows/EasyNoteVault/EasyNoteVault.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            /p:PublishSingleFile=true `
+            /p:AssemblyInformationalVersion=${{ inputs.version }} `
+            -o dist/windows
 
-      # 5️⃣ 准备发布文件（zip）
+      # 5️⃣ 打包发布文件（zip）
       - name: Prepare release files
         shell: pwsh
         run: |
-          windows/scripts/release.ps1
+          if (Test-Path dist) { Remove-Item dist -Recurse -Force }
+          New-Item -ItemType Directory -Path dist | Out-Null
+          Compress-Archive -Path dist/windows/* -DestinationPath dist/EasyNoteVault-${{ inputs.version }}-windows.zip
 
       # 6️⃣ 创建 GitHub Release
       - name: Create GitHub Release
@@ -51,6 +59,6 @@ jobs:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.version }}
           files: |
-            dist/**/*.zip
+            dist/EasyNoteVault-${{ inputs.version }}-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
