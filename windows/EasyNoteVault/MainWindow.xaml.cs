@@ -30,6 +30,23 @@ namespace EasyNoteVault
             VaultGrid.SelectedItem = item;
             VaultGrid.ScrollIntoView(item);
         }
+                // ================= 搜索 =================
+        private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var text = SearchBox.Text.Trim().ToLower();
+
+            View.Filter = obj =>
+            {
+                if (string.IsNullOrEmpty(text))
+                    return true;
+
+                var v = obj as VaultItem;
+                return v.Name.ToLower().Contains(text) ||
+                       v.Url.ToLower().Contains(text) ||
+                       v.Account.ToLower().Contains(text) ||
+                       v.Remark.ToLower().Contains(text);
+            };
+        }
 
         // ================= 复制 =================
         private void VaultGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
