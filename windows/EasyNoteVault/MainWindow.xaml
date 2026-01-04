@@ -53,12 +53,13 @@
         <DataGrid x:Name="VaultGrid"
                   Grid.Row="1"
                   AutoGenerateColumns="False"
-                  CanUserAddRows="False"
+                  CanUserAddRows="True"
                   CanUserDeleteRows="True"
                   IsReadOnly="False"
                   SelectionUnit="Cell"
                   PreviewMouseLeftButtonUp="VaultGrid_PreviewMouseLeftButtonUp"
-                  CellEditEnding="VaultGrid_CellEditEnding">
+                  CellEditEnding="VaultGrid_CellEditEnding"
+                  ContextMenuOpening="VaultGrid_ContextMenuOpening">
 
             <!-- 右键菜单 -->
             <DataGrid.ContextMenu>
