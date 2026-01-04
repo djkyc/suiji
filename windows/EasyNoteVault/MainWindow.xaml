@@ -1,7 +1,7 @@
 <Window x:Class="EasyNoteVault.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="EasyNoteVault-随记|  By: djcyc""
+        Title="EasyNoteVault"
         Width="1000"
         Height="650"
         WindowStartupLocation="CenterScreen">
@@ -18,7 +18,7 @@
                    LastChildFill="False">
 
             <!-- 左侧标题 -->
-            <TextBlock Text="EasyNoteVault"
+            <TextBlock Text="EasyNoteVault-随记By:djkcy"
                        FontSize="22"
                        FontWeight="Bold"
                        DockPanel.Dock="Left"/>
