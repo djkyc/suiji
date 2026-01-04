@@ -7,19 +7,67 @@ using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace EasyNoteVault
 {
     public partial class MainWindow : Window
     {
-        public ObservableCollection<VaultItem> Items { get; } =
+        private ObservableCollection<VaultItem> Items =
             new ObservableCollection<VaultItem>();
+
+        private ICollectionView View;
 
         public MainWindow()
         {
             InitializeComponent();
-            VaultGrid.ItemsSource = Items;
+
+            // 延迟加载（避免启动秒退）
+            Loaded += (_, _) => LoadData();
+
+            // 关闭时自动保存
+            Closing += (_, _) => SaveData();
+
+            View = CollectionViewSource.GetDefaultView(Items);
+            VaultGrid.ItemsSource = View;
+        }
+
+        // ================= 加载（AES 解密） =================
+        private void LoadData()
+        {
+            try
+            {
+                var list = DataStore.Load();
+                Items.Clear();
+                foreach (var v in list)
+                    Items.Add(v);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "数据加载失败：\n" + ex.Message,
+                    "EasyNoteVault",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        // ================= 保存（AES 加密） =================
+        private void SaveData()
+        {
+            try
+            {
+                DataStore.Save(Items);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "数据保存失败：\n" + ex.Message,
+                    "EasyNoteVault",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
 
         // ================= 新增一行 =================
@@ -30,21 +78,22 @@ namespace EasyNoteVault
             VaultGrid.SelectedItem = item;
             VaultGrid.ScrollIntoView(item);
         }
-                // ================= 搜索 =================
+
+        // ================= 搜索 =================
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            var text = SearchBox.Text.Trim().ToLower();
+            string key = SearchBox.Text.Trim().ToLower();
 
             View.Filter = obj =>
             {
-                if (string.IsNullOrEmpty(text))
+                if (string.IsNullOrEmpty(key))
                     return true;
 
                 var v = obj as VaultItem;
-                return v.Name.ToLower().Contains(text) ||
-                       v.Url.ToLower().Contains(text) ||
-                       v.Account.ToLower().Contains(text) ||
-                       v.Remark.ToLower().Contains(text);
+                return v.Name.ToLower().Contains(key) ||
+                       v.Url.ToLower().Contains(key) ||
+                       v.Account.ToLower().Contains(key) ||
+                       v.Remark.ToLower().Contains(key);
             };
         }
 
@@ -83,7 +132,7 @@ namespace EasyNoteVault
             VaultGrid.CommitEdit(DataGridEditingUnit.Row, true);
         }
 
-        // ================= 导出 =================
+        // ================= 导出 txt =================
         private void Export_Click(object sender, RoutedEventArgs e)
         {
             string fileName = DateTime.Now.ToString("yyyyMMddHH") + ".txt";
@@ -108,7 +157,7 @@ namespace EasyNoteVault
             File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
         }
 
-        // ================= 导入（txt / json） =================
+        // ================= 导入 txt / json =================
         private void Import_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog dlg = new OpenFileDialog
@@ -154,7 +203,6 @@ namespace EasyNoteVault
             {
                 var json = File.ReadAllText(path, Encoding.UTF8);
                 var list = JsonSerializer.Deserialize<VaultItem[]>(json);
-
                 if (list == null) return;
 
                 foreach (var v in list)
