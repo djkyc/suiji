@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (例如 v0.5.2)"
+        description: "Release version (例如 v0.1)"
         required: true
 
 # 允许 Actions 创建 Release
