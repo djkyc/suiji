@@ -16,8 +16,8 @@ namespace EasyNoteVault
             if (!File.Exists(FilePath))
                 return new List<VaultItem>();
 
-            var encrypted = File.ReadAllBytes(FilePath);
-            var json = CryptoService.Decrypt(encrypted);
+            var encryptedBytes = File.ReadAllBytes(FilePath);
+            var json = CryptoService.Decrypt(encryptedBytes);
 
             return JsonSerializer.Deserialize<List<VaultItem>>(json)
                    ?? new List<VaultItem>();
