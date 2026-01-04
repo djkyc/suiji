@@ -13,11 +13,11 @@ namespace EasyNoteVault
 {
     public partial class MainWindow : Window
     {
-        // 全量数据（真实数据）
+        // 全量数据
         private ObservableCollection<VaultItem> AllItems =
             new ObservableCollection<VaultItem>();
 
-        // 当前显示数据（搜索过滤后）
+        // 当前显示数据（搜索过滤）
         private ObservableCollection<VaultItem> ViewItems =
             new ObservableCollection<VaultItem>();
 
@@ -29,9 +29,6 @@ namespace EasyNoteVault
 
             Loaded += (_, _) => LoadData();
             Closing += (_, _) => SaveData();
-
-            // 恢复：编辑完成检测重复
-            VaultGrid.CellEditEnding += VaultGrid_CellEditEnding;
         }
 
         // ================= 加载 / 保存 =================
@@ -96,18 +93,21 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= 左键复制 =================
+        // ================= 左键单击复制（恢复） =================
         private void VaultGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (e.OriginalSource is TextBlock tb &&
                 !string.IsNullOrWhiteSpace(tb.Text))
             {
                 Clipboard.SetText(tb.Text);
-                MessageBox.Show("已复制");
+                MessageBox.Show("已复制",
+                    "EasyNoteVault",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
 
-        // ================= 右键粘贴 =================
+        // ================= 右键粘贴（保持） =================
         private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (!Clipboard.ContainsText()) return;
@@ -132,7 +132,7 @@ namespace EasyNoteVault
             VaultGrid.CommitEdit(DataGridEditingUnit.Row, true);
         }
 
-        // ================= 🔥 重复网站检测（恢复） =================
+        // ================= 🔥 重复网址提示（恢复） =================
         private void VaultGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
             if (e.Column.Header.ToString() != "网站")
