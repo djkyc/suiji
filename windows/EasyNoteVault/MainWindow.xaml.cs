@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
+using System.Windows.Data;   // ⭐ 关键：ICollectionView 在这里
 using System.Windows.Input;
 
 namespace EasyNoteVault
@@ -23,14 +23,15 @@ namespace EasyNoteVault
         {
             InitializeComponent();
 
-            // 延迟加载（避免启动秒退）
-            Loaded += (_, _) => LoadData();
-
-            // 关闭时自动保存
-            Closing += (_, _) => SaveData();
-
+            // 建立视图（用于搜索过滤）
             View = CollectionViewSource.GetDefaultView(Items);
             VaultGrid.ItemsSource = View;
+
+            // 延迟加载，避免启动炸
+            Loaded += (_, _) => LoadData();
+
+            // 退出即保存
+            Closing += (_, _) => SaveData();
         }
 
         // ================= 加载（AES 解密） =================
@@ -79,25 +80,27 @@ namespace EasyNoteVault
             VaultGrid.ScrollIntoView(item);
         }
 
-        // ================= 搜索 =================
+        // ================= 搜索 / 过滤 =================
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            string key = SearchBox.Text.Trim().ToLower();
+            string keyword = SearchBox.Text.Trim().ToLower();
 
             View.Filter = obj =>
             {
-                if (string.IsNullOrEmpty(key))
+                if (string.IsNullOrEmpty(keyword))
                     return true;
 
                 var v = obj as VaultItem;
-                return v.Name.ToLower().Contains(key) ||
-                       v.Url.ToLower().Contains(key) ||
-                       v.Account.ToLower().Contains(key) ||
-                       v.Remark.ToLower().Contains(key);
+                if (v == null) return false;
+
+                return v.Name.ToLower().Contains(keyword) ||
+                       v.Url.ToLower().Contains(keyword) ||
+                       v.Account.ToLower().Contains(keyword) ||
+                       v.Remark.ToLower().Contains(keyword);
             };
         }
 
-        // ================= 复制 =================
+        // ================= 左键复制 =================
         private void VaultGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (e.OriginalSource is TextBlock tb &&
@@ -109,7 +112,7 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= 粘贴 =================
+        // ================= 右键粘贴 =================
         private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (!Clipboard.ContainsText()) return;
@@ -119,6 +122,8 @@ namespace EasyNoteVault
             VaultGrid.BeginEdit();
 
             var item = VaultGrid.CurrentCell.Item as VaultItem;
+            if (item == null) return;
+
             var col = VaultGrid.CurrentCell.Column.Header.ToString();
             var text = Clipboard.GetText();
 
@@ -157,7 +162,7 @@ namespace EasyNoteVault
             File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
         }
 
-        // ================= 导入 txt / json =================
+        // ================= 导入（txt / json） =================
         private void Import_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog dlg = new OpenFileDialog
@@ -218,6 +223,7 @@ namespace EasyNoteVault
         }
     }
 
+    // ================= 数据模型 =================
     public class VaultItem
     {
         public string Name { get; set; } = "";
