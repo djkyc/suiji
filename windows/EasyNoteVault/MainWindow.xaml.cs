@@ -1,3 +1,4 @@
+#nullable enable
 using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
@@ -112,7 +113,7 @@ namespace EasyNoteVault
             var item = new VaultItem();
             AllItems.Add(item);
 
-            // 如果当前在搜索过滤中，新增项可能看不到；这里选择清空搜索，确保能看到新增行
+            // 如果当前在搜索过滤中，新增项可能看不到；这里清空搜索确保能看到新增行
             if (!string.IsNullOrWhiteSpace(SearchBox.Text))
                 SearchBox.Text = "";
 
@@ -169,7 +170,7 @@ namespace EasyNoteVault
             if (col == "网站")
             {
                 // ✅ 重复：TrySetUrl 内部会提示并定位到已有项
-                // ✅ 并且返回 false，直接拒绝粘贴（不写入、不保存）
+                // ✅ 返回 false，直接拒绝粘贴（不写入、不保存）
                 if (!TrySetUrl(item, text))
                     return;
             }
