@@ -8,7 +8,9 @@ using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace EasyNoteVault
@@ -16,12 +18,10 @@ namespace EasyNoteVault
     public partial class MainWindow : Window
     {
         // 真正的数据源
-        private ObservableCollection<VaultItem> AllItems =
-            new ObservableCollection<VaultItem>();
+        private ObservableCollection<VaultItem> AllItems = new ObservableCollection<VaultItem>();
 
         // 当前显示数据
-        private ObservableCollection<VaultItem> ViewItems =
-            new ObservableCollection<VaultItem>();
+        private ObservableCollection<VaultItem> ViewItems = new ObservableCollection<VaultItem>();
 
         public MainWindow()
         {
@@ -38,11 +38,16 @@ namespace EasyNoteVault
                 SaveData();
             };
 
-            // 明确注册，防止再丢
+            // 左键复制
             VaultGrid.PreviewMouseLeftButtonUp += VaultGrid_PreviewMouseLeftButtonUp;
+
+            // ✅ 关键：右键点哪格，就把 CurrentCell 切到哪格
+            VaultGrid.PreviewMouseRightButtonDown += VaultGrid_PreviewMouseRightButtonDown;
+
+            // 编辑结束校验+保存
             VaultGrid.CellEditEnding += VaultGrid_CellEditEnding;
 
-            // ✅ 任何单元格切换都后台提交保存（防止编辑没提交就退出/导出）
+            // 单元格变化后台提交保存
             VaultGrid.CurrentCellChanged += VaultGrid_CurrentCellChanged;
         }
 
@@ -56,11 +61,39 @@ namespace EasyNoteVault
             }
             catch
             {
-                // 忽略：关闭时或特殊状态可能抛异常
+                // 忽略：某些状态下可能抛异常
             }
         }
 
-        // ================= 定位到指定行 + 指定列（网站列） =================
+        // ================= 右键：选中你点的单元格（否则 CurrentCell 不对） =================
+        private void VaultGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var dep = e.OriginalSource as DependencyObject;
+            if (dep == null) return;
+
+            var cell = FindVisualParent<DataGridCell>(dep);
+            if (cell == null) return;
+
+            var row = FindVisualParent<DataGridRow>(cell);
+            if (row == null) return;
+
+            VaultGrid.SelectedItem = row.Item;
+            VaultGrid.CurrentCell = new DataGridCellInfo(row.Item, cell.Column);
+            VaultGrid.Focus();
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject current = child;
+            while (current != null)
+            {
+                if (current is T typed) return typed;
+                current = VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        // ================= 定位到指定行 + 指定列 =================
         private DataGridColumn? GetColumnByHeader(string header)
         {
             return VaultGrid.Columns.FirstOrDefault(c =>
@@ -69,7 +102,7 @@ namespace EasyNoteVault
 
         private void LocateItemAndFocusCell(VaultItem item, string columnHeader)
         {
-            // 如果当前搜索过滤导致 item 不在 ViewItems，则清空搜索让它出现
+            // 若搜索过滤导致 item 不在 ViewItems，则清空搜索让它出现
             if (!ViewItems.Contains(item))
             {
                 SearchBox.Text = "";
@@ -94,9 +127,7 @@ namespace EasyNoteVault
             ViewItems.Clear();
 
             foreach (var v in DataStore.Load())
-            {
                 AllItems.Add(v);
-            }
 
             RefreshView();
         }
@@ -113,7 +144,6 @@ namespace EasyNoteVault
             var item = new VaultItem();
             AllItems.Add(item);
 
-            // 如果当前在搜索过滤中，新增项可能看不到；这里清空搜索确保能看到新增行
             if (!string.IsNullOrWhiteSpace(SearchBox.Text))
                 SearchBox.Text = "";
 
@@ -123,7 +153,6 @@ namespace EasyNoteVault
             VaultGrid.SelectedItem = item;
             VaultGrid.ScrollIntoView(item);
 
-            // 可选：定位到“名称”列开始输入
             var nameCol = GetColumnByHeader("名称");
             if (nameCol != null)
             {
@@ -141,19 +170,21 @@ namespace EasyNoteVault
         // ================= 左键复制 =================
         private void VaultGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (e.OriginalSource is TextBlock tb &&
-                !string.IsNullOrWhiteSpace(tb.Text))
+            if (e.OriginalSource is TextBlock tb && !string.IsNullOrWhiteSpace(tb.Text))
             {
                 Clipboard.SetText(tb.Text);
-                MessageBox.Show("已复制",
-                    "EasyNoteVault",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                MessageBox.Show("已复制", "EasyNoteVault",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
-        // ================= ✅ 右键粘贴（重复网址：提示+拒绝+定位到已有项） =================
+        // ================= ✅ 右键粘贴（修复：空表/占位行也能粘贴） =================
         private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            PurePaste();
+        }
+
+        private void PurePaste()
         {
             if (!Clipboard.ContainsText())
                 return;
@@ -161,16 +192,41 @@ namespace EasyNoteVault
             VaultGrid.Focus();
             ForceCommitGridEdits();
 
-            if (VaultGrid.CurrentCell.Item is not VaultItem item)
+            var colObj = VaultGrid.CurrentCell.Column;
+            if (colObj == null)
                 return;
 
-            string col = VaultGrid.CurrentCell.Column?.Header?.ToString() ?? "";
+            string col = colObj.Header?.ToString() ?? "";
             string text = Clipboard.GetText();
 
+            // ✅ 取当前行对象：如果是占位符/空对象 -> 自动创建一条新记录再粘贴
+            object? cellItem = VaultGrid.CurrentCell.Item;
+
+            VaultItem item;
+            if (cellItem is VaultItem vi)
+            {
+                item = vi;
+            }
+            else
+            {
+                // 可能是 CollectionView.NewItemPlaceholder 或 null
+                item = new VaultItem();
+                AllItems.Add(item);
+
+                if (!string.IsNullOrWhiteSpace(SearchBox.Text))
+                    SearchBox.Text = "";
+
+                RefreshView();
+
+                VaultGrid.SelectedItem = item;
+                VaultGrid.ScrollIntoView(item);
+                VaultGrid.CurrentCell = new DataGridCellInfo(item, colObj);
+            }
+
+            // ✅ 写入
             if (col == "网站")
             {
-                // ✅ 重复：TrySetUrl 内部会提示并定位到已有项
-                // ✅ 返回 false，直接拒绝粘贴（不写入、不保存）
+                // 重复：提示+拒绝+定位到已有项
                 if (!TrySetUrl(item, text))
                     return;
             }
@@ -207,15 +263,13 @@ namespace EasyNoteVault
                 var tb = e.EditingElement as TextBox;
                 if (tb == null) return;
 
-                // ✅ 重复：提示 + 定位到已有项 + 取消编辑（保持原值）
                 if (!TrySetUrl(item, tb.Text))
                 {
-                    e.Cancel = true;
+                    e.Cancel = true; // ✅ 取消编辑，保持原值
                     return;
                 }
             }
 
-            // ✅ 任何列：编辑结束后台提交+保存
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ForceCommitGridEdits();
@@ -263,9 +317,7 @@ namespace EasyNoteVault
             sb.AppendLine("名称  网站  账号  密码  备注");
 
             foreach (var v in AllItems)
-            {
                 sb.AppendLine($"{v.Name}  {v.Url}  {v.Account}  {v.Password}  {v.Remark}");
-            }
 
             File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
         }
@@ -278,8 +330,7 @@ namespace EasyNoteVault
             foreach (var line in lines.Skip(1))
             {
                 var parts = line.Split(new[] { "  " }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 5)
-                    continue;
+                if (parts.Length < 5) continue;
 
                 var item = new VaultItem
                 {
@@ -298,8 +349,7 @@ namespace EasyNoteVault
         {
             var json = File.ReadAllText(path, Encoding.UTF8);
             var list = JsonSerializer.Deserialize<VaultItem[]>(json);
-            if (list == null)
-                return;
+            if (list == null) return;
 
             foreach (var item in list)
             {
@@ -313,7 +363,6 @@ namespace EasyNoteVault
         {
             string norm = NormalizeUrl(newUrl);
 
-            // 允许空（不做重复判断）
             if (string.IsNullOrEmpty(norm))
             {
                 current.Url = newUrl ?? "";
@@ -331,8 +380,7 @@ namespace EasyNoteVault
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
 
-                // ✅ 定位到已存在那条，聚焦“网站”列
-                LocateItemAndFocusCell(dup, "网站");
+                LocateItemAndFocusCell(dup, "网站"); // ✅ 定位到已有项
                 return false;
             }
 
