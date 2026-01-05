@@ -1,7 +1,7 @@
 <Window x:Class="EasyNoteVault.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="EasyNoteVault"
+        Title="EasyNoteVault  |  By: djcyc"
         Width="1000"
         Height="650"
         WindowStartupLocation="CenterScreen">
@@ -10,29 +10,71 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部栏 -->
-        <DockPanel Margin="0,0,0,10">
-            <TextBlock Text="EasyNoteVault"
+        <!-- 顶部区域 -->
+        <DockPanel Grid.Row="0"
+                   Margin="0,0,0,10"
+                   LastChildFill="False">
+
+            <!-- 左侧标题 -->
+            <TextBlock Text="EasyNoteVault-随记"
                        FontSize="22"
                        FontWeight="Bold"
                        DockPanel.Dock="Left"/>
 
+            <!-- 右侧操作区 -->
             <StackPanel Orientation="Horizontal"
                         DockPanel.Dock="Right">
+
+                <!-- 搜索框 -->
+                <TextBox x:Name="SearchBox"
+                         Width="250"
+                         Height="28"
+                         Margin="0,0,10,0"
+                         VerticalContentAlignment="Center"
+                         TextChanged="SearchBox_TextChanged"
+                         ToolTip="搜索（名称 / 网站 / 账号 / 备注）"/>
+
+                <!-- 导入 -->
                 <Button Content="导入"
                         Width="80"
                         Margin="0,0,5,0"
                         Click="Import_Click"/>
+
+                <!-- 导出 -->
                 <Button Content="导出"
                         Width="80"
                         Click="Export_Click"/>
+
+                <!-- WebDAV 设置 -->
+                <Button Content="WebDAV"
+                        Width="80"
+                        Margin="8,0,0,0"
+                        Click="WebDav_Click"/>
+
+                <!-- 状态点：灰/黄/绿/红（可点看原因） -->
+                <Button x:Name="WebDavStatusBtn"
+                        Width="18"
+                        Height="18"
+                        Margin="6,0,0,0"
+                        Click="WebDavStatus_Click"
+                        Background="Gray"
+                        BorderThickness="0"
+                        ToolTip="WebDAV 状态">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Ellipse Fill="{TemplateBinding Background}" Stroke="Transparent"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
             </StackPanel>
         </DockPanel>
 
-        <!-- 表格 -->
+        <!-- 主表格 -->
         <DataGrid x:Name="VaultGrid"
                   Grid.Row="1"
                   AutoGenerateColumns="False"
@@ -40,8 +82,9 @@
                   CanUserDeleteRows="True"
                   IsReadOnly="False"
                   SelectionUnit="Cell"
-                  HeadersVisibility="Column"
-                  SelectionMode="Single">
+                  ContextMenuOpening="VaultGrid_ContextMenuOpening"
+                  PreviewMouseLeftButtonUp="VaultGrid_PreviewMouseLeftButtonUp"
+                  CellEditEnding="VaultGrid_CellEditEnding">
 
             <!-- 右键菜单 -->
             <DataGrid.ContextMenu>
@@ -51,23 +94,28 @@
                 </ContextMenu>
             </DataGrid.ContextMenu>
 
+            <!-- 列定义 -->
             <DataGrid.Columns>
-                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="150"/>
-                <DataGridTextColumn Header="网站" Binding="{Binding Url}" Width="250"/>
-                <DataGridTextColumn Header="账号" Binding="{Binding Account}" Width="200"/>
-                <DataGridTextColumn Header="密码" Binding="{Binding Password}" Width="200"/>
-                <DataGridTextColumn Header="备注" Binding="{Binding Remark}" Width="*"/>
+                <DataGridTextColumn Header="名称"
+                                    Binding="{Binding Name}"
+                                    Width="150"/>
+
+                <DataGridTextColumn Header="网站"
+                                    Binding="{Binding Url}"
+                                    Width="250"/>
+
+                <DataGridTextColumn Header="账号"
+                                    Binding="{Binding Account}"
+                                    Width="200"/>
+
+                <DataGridTextColumn Header="密码"
+                                    Binding="{Binding Password}"
+                                    Width="200"/>
+
+                <DataGridTextColumn Header="备注"
+                                    Binding="{Binding Remark}"
+                                    Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
-
-        <!-- 底部 -->
-        <StackPanel Grid.Row="2"
-                    Orientation="Horizontal"
-                    Margin="0,10,0,0">
-            <Button Content="＋ 新增一行"
-                    Width="120"
-                    Height="32"
-                    Click="AddRow_Click"/>
-        </StackPanel>
     </Grid>
 </Window>
