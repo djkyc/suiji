@@ -82,6 +82,7 @@
                   CanUserDeleteRows="True"
                   IsReadOnly="False"
                   SelectionUnit="Cell"
+                  RowHeight="32"
                   ContextMenuOpening="VaultGrid_ContextMenuOpening"
                   PreviewMouseLeftButtonDown="VaultGrid_PreviewMouseLeftButtonDown"
                   PreviewMouseDoubleClick="VaultGrid_PreviewMouseDoubleClick"
@@ -112,6 +113,17 @@
                 <DataGridTextColumn Header="密码"
                                     Binding="{Binding Password}"
                                     Width="200"/>
+
+                <!-- ✅ 更多账号密码：显示中文数量 管理(2) -->
+                <DataGridTemplateColumn Header="更多" Width="90">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Padding="6,2"
+                                    Click="ManageCreds_Click"
+                                    Content="{Binding Credentials.Count, StringFormat=管理({0})}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <DataGridTextColumn Header="备注"
                                     Binding="{Binding Remark}"
