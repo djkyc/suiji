@@ -47,13 +47,13 @@
                         Width="80"
                         Click="Export_Click"/>
 
-                <!-- WebDAV 设置 -->
+                <!-- WebDAV -->
                 <Button Content="WebDAV"
                         Width="80"
                         Margin="8,0,0,0"
                         Click="WebDav_Click"/>
 
-                <!-- 状态点：灰/黄/绿/红（可点看原因） -->
+                <!-- 状态点 -->
                 <Button x:Name="WebDavStatusBtn"
                         Width="18"
                         Height="18"
@@ -83,7 +83,8 @@
                   IsReadOnly="False"
                   SelectionUnit="Cell"
                   ContextMenuOpening="VaultGrid_ContextMenuOpening"
-                  PreviewMouseLeftButtonUp="VaultGrid_PreviewMouseLeftButtonUp"
+                  PreviewMouseLeftButtonDown="VaultGrid_PreviewMouseLeftButtonDown"
+                  PreviewMouseDoubleClick="VaultGrid_PreviewMouseDoubleClick"
                   CellEditEnding="VaultGrid_CellEditEnding">
 
             <!-- 右键菜单 -->
