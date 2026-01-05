@@ -118,5 +118,24 @@
                                     Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
+
+        <!-- ✅ 轻提示 Toast（不打断输入） -->
+        <Border x:Name="ToastBorder"
+                Grid.RowSpan="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,46,10,0"
+                Padding="10,6"
+                Background="#CC000000"
+                CornerRadius="6"
+                Opacity="0"
+                Visibility="Collapsed"
+                Panel.ZIndex="999">
+            <TextBlock x:Name="ToastText"
+                       Foreground="White"
+                       FontSize="13"
+                       Text="已复制"/>
+        </Border>
+
     </Grid>
 </Window>
