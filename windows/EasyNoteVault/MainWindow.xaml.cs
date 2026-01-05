@@ -16,21 +16,16 @@ namespace EasyNoteVault
 {
     public partial class MainWindow : Window
     {
-        // 真正的数据源
         private ObservableCollection<VaultItem> AllItems = new ObservableCollection<VaultItem>();
-
-        // 当前显示数据
         private ObservableCollection<VaultItem> ViewItems = new ObservableCollection<VaultItem>();
 
-        // WebDAV
         private WebDavSettings _webdavSettings = new WebDavSettings();
-        private WebDavSyncService _webdav = null;   // 允许为 null（不使用 ?，避免 CS8632）
+        private WebDavSyncService _webdav = null;
         private string _webdavLastDetail = "未启用 WebDAV";
 
         public MainWindow()
         {
             InitializeComponent();
-
             VaultGrid.ItemsSource = ViewItems;
 
             Loaded += (_, _) =>
@@ -47,7 +42,6 @@ namespace EasyNoteVault
             };
         }
 
-        // ================= 工具：强制提交 DataGrid 编辑 =================
         private void ForceCommitGridEdits()
         {
             try
@@ -58,7 +52,6 @@ namespace EasyNoteVault
             catch { }
         }
 
-        // ================= 加载 / 保存 =================
         private void LoadData()
         {
             AllItems.Clear();
@@ -75,24 +68,81 @@ namespace EasyNoteVault
             ForceCommitGridEdits();
             DataStore.Save(AllItems);
 
-            // 保存后触发 WebDAV 自动上传（黄->绿/红）
             if (_webdav != null) _webdav.NotifyLocalChanged();
         }
 
-        // ================= 搜索 =================
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             RefreshView();
         }
 
-        // ================= 左键复制 =================
-        private void VaultGrid_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        // ================= ✅ 单击：进入编辑（可直接输入） =================
+        private void VaultGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.OriginalSource is TextBlock tb && !string.IsNullOrWhiteSpace(tb.Text))
+            try
             {
-                Clipboard.SetText(tb.Text);
+                if (e.ClickCount != 1) return;
+
+                var dep = e.OriginalSource as DependencyObject;
+                if (dep == null) return;
+
+                var cell = FindVisualParent<DataGridCell>(dep);
+                if (cell == null) return;
+
+                // 表头/空白/只读：不处理
+                if (cell.Column == null || cell.IsReadOnly) return;
+
+                // 如果点在编辑控件上就不抢
+                if (e.OriginalSource is TextBox || e.OriginalSource is PasswordBox)
+                    return;
+
+                var rowItem = cell.DataContext;
+                if (rowItem == null) return;
+
+                VaultGrid.CurrentCell = new DataGridCellInfo(rowItem, cell.Column);
+                VaultGrid.SelectedCells.Clear();
+                VaultGrid.SelectedCells.Add(VaultGrid.CurrentCell);
+
+                // 用 Dispatcher 确保不会卡住鼠标消息
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    VaultGrid.BeginEdit();
+                }), DispatcherPriority.Input);
+            }
+            catch
+            {
+                // 不崩
+            }
+        }
+
+        // ================= ✅ 双击：复制单元格内容 =================
+        private void VaultGrid_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                string text = "";
+
+                // 显示状态下常见是 TextBlock
+                if (e.OriginalSource is TextBlock tb)
+                    text = tb.Text;
+
+                // 编辑状态下可能是 TextBox
+                if (string.IsNullOrWhiteSpace(text) && e.OriginalSource is TextBox tbox)
+                    text = tbox.Text;
+
+                if (string.IsNullOrWhiteSpace(text))
+                    return;
+
+                Clipboard.SetText(text);
                 MessageBox.Show("已复制", "EasyNoteVault",
                     MessageBoxButton.OK, MessageBoxImage.Information);
+
+                // 阻止双击触发其它默认行为
+                e.Handled = true;
+            }
+            catch
+            {
+                // 不崩
             }
         }
 
@@ -107,15 +157,11 @@ namespace EasyNoteVault
                 var cell = FindVisualParent<DataGridCell>(dep);
                 var row = FindVisualParent<DataGridRow>(dep);
 
-                // 点表头/空白/滚动条：可能为空，直接放过
                 if (cell == null || row == null) return;
 
                 SetCurrentCellOnly(row.Item, cell.Column);
             }
-            catch
-            {
-                // 永不崩
-            }
+            catch { }
         }
 
         private void SetCurrentCellOnly(object rowItem, DataGridColumn column)
@@ -153,9 +199,8 @@ namespace EasyNoteVault
                 if (colObj == null) return;
 
                 string col = colObj.Header == null ? "" : colObj.Header.ToString();
-                string text = Clipboard.GetText();
+                string clip = Clipboard.GetText();
 
-                // 当前行对象：VaultItem 或 新增占位符
                 VaultItem item;
                 if (VaultGrid.CurrentCell.Item is VaultItem vi)
                 {
@@ -163,11 +208,9 @@ namespace EasyNoteVault
                 }
                 else
                 {
-                    // 空表/占位行：自动新建一条
                     item = new VaultItem();
                     AllItems.Add(item);
 
-                    // 搜索中粘贴：清空搜索保证新行可见
                     if (!string.IsNullOrWhiteSpace(SearchBox.Text))
                         SearchBox.Text = "";
 
@@ -177,13 +220,13 @@ namespace EasyNoteVault
 
                 if (col == "网站")
                 {
-                    if (!TrySetUrl(item, text))
+                    if (!TrySetUrl(item, clip))
                         return;
                 }
-                else if (col == "名称") item.Name = text;
-                else if (col == "账号") item.Account = text;
-                else if (col == "密码") item.Password = text;
-                else if (col == "备注") item.Remark = text;
+                else if (col == "名称") item.Name = clip;
+                else if (col == "账号") item.Account = clip;
+                else if (col == "密码") item.Password = clip;
+                else if (col == "备注") item.Remark = clip;
 
                 ForceCommitGridEdits();
                 RefreshView();
@@ -224,7 +267,6 @@ namespace EasyNoteVault
             }), DispatcherPriority.Background);
         }
 
-        // ================= 网址去重：重复 -> 提示 + 定位 + 拒绝 =================
         private DataGridColumn GetColumnByHeader(string header)
         {
             return VaultGrid.Columns.FirstOrDefault(c =>
@@ -282,7 +324,6 @@ namespace EasyNoteVault
             return url;
         }
 
-        // ================= 刷新视图 =================
         private void RefreshView()
         {
             string key = (SearchBox.Text ?? "").Trim().ToLower();
@@ -301,7 +342,6 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= 导入 =================
         private void Import_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog dlg = new OpenFileDialog
@@ -320,7 +360,6 @@ namespace EasyNoteVault
             SaveData();
         }
 
-        // ================= 导出 =================
         private void Export_Click(object sender, RoutedEventArgs e)
         {
             ForceCommitGridEdits();
@@ -344,7 +383,6 @@ namespace EasyNoteVault
             File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
         }
 
-        // ================= 导入实现 =================
         private void ImportTxt(string path)
         {
             var lines = File.ReadAllLines(path, Encoding.UTF8);
@@ -382,7 +420,6 @@ namespace EasyNoteVault
             }
         }
 
-        // ================= WebDAV：设置 + 状态点 =================
         private void WebDav_Click(object sender, RoutedEventArgs e)
         {
             var win = new WebDavSettingsWindow(_webdavSettings) { Owner = this };
@@ -422,7 +459,6 @@ namespace EasyNoteVault
                 return;
             }
 
-            // 本地文件路径：与 DataStore 一致（程序目录/data.enc）
             string localPath = DataStore.FilePath;
             string remoteUrl = WebDavUrlBuilder.BuildRemoteFileUrl(_webdavSettings);
 
@@ -442,11 +478,11 @@ namespace EasyNoteVault
                     WebDavStatusBtn.ToolTip = detail;
 
                     if (state == WebDavSyncState.Queued)
-                        WebDavStatusBtn.Background = Brushes.Gold;       // 黄
+                        WebDavStatusBtn.Background = Brushes.Gold;
                     else if (state == WebDavSyncState.Connected || state == WebDavSyncState.Uploaded)
-                        WebDavStatusBtn.Background = Brushes.LimeGreen;  // 绿
+                        WebDavStatusBtn.Background = Brushes.LimeGreen;
                     else if (state == WebDavSyncState.Failed)
-                        WebDavStatusBtn.Background = Brushes.IndianRed;  // 红
+                        WebDavStatusBtn.Background = Brushes.IndianRed;
                     else
                         WebDavStatusBtn.Background = Brushes.Gray;
                 });
@@ -472,10 +508,8 @@ namespace EasyNoteVault
         public string Remark { get; set; } = "";
     }
 
-    // ================= ✅ DataStore：补齐缺失（解决 CS0103），保存到 data.enc =================
     public static class DataStore
     {
-        // 固定保存到程序目录（与 WebDAV 上传一致）
         public static readonly string FilePath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data.enc");
 
@@ -488,7 +522,6 @@ namespace EasyNoteVault
 
                 var bytes = File.ReadAllBytes(FilePath);
 
-                // 1) 优先按 DPAPI 解密
                 string json;
                 try
                 {
@@ -497,7 +530,6 @@ namespace EasyNoteVault
                 }
                 catch
                 {
-                    // 2) 解密失败：兼容旧版本（可能是明文 JSON）
                     json = Encoding.UTF8.GetString(bytes);
                 }
 
@@ -517,13 +549,12 @@ namespace EasyNoteVault
                 var json = JsonSerializer.Serialize(items.ToList());
                 var raw = Encoding.UTF8.GetBytes(json);
 
-                // DPAPI 加密写入
                 var enc = ProtectedData.Protect(raw, null, DataProtectionScope.CurrentUser);
                 File.WriteAllBytes(FilePath, enc);
             }
             catch
             {
-                // 不弹窗，避免影响使用
+                // 不弹窗
             }
         }
     }
