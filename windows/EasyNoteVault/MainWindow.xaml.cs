@@ -3,6 +3,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
@@ -421,7 +422,8 @@ namespace EasyNoteVault
                 return;
             }
 
-            string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data.enc");
+            // 本地文件路径：与 DataStore 一致（程序目录/data.enc）
+            string localPath = DataStore.FilePath;
             string remoteUrl = WebDavUrlBuilder.BuildRemoteFileUrl(_webdavSettings);
 
             _webdav = new WebDavSyncService(
@@ -450,7 +452,6 @@ namespace EasyNoteVault
                 });
             };
 
-            // 启用后先测连接：绿/红
             _ = _webdav.TestAsync();
         }
 
@@ -469,5 +470,61 @@ namespace EasyNoteVault
         public string Account { get; set; } = "";
         public string Password { get; set; } = "";
         public string Remark { get; set; } = "";
+    }
+
+    // ================= ✅ DataStore：补齐缺失（解决 CS0103），保存到 data.enc =================
+    public static class DataStore
+    {
+        // 固定保存到程序目录（与 WebDAV 上传一致）
+        public static readonly string FilePath =
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data.enc");
+
+        public static VaultItem[] Load()
+        {
+            try
+            {
+                if (!File.Exists(FilePath))
+                    return new VaultItem[0];
+
+                var bytes = File.ReadAllBytes(FilePath);
+
+                // 1) 优先按 DPAPI 解密
+                string json;
+                try
+                {
+                    var raw = ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser);
+                    json = Encoding.UTF8.GetString(raw);
+                }
+                catch
+                {
+                    // 2) 解密失败：兼容旧版本（可能是明文 JSON）
+                    json = Encoding.UTF8.GetString(bytes);
+                }
+
+                var list = JsonSerializer.Deserialize<VaultItem[]>(json);
+                return list ?? new VaultItem[0];
+            }
+            catch
+            {
+                return new VaultItem[0];
+            }
+        }
+
+        public static void Save(ObservableCollection<VaultItem> items)
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(items.ToList());
+                var raw = Encoding.UTF8.GetBytes(json);
+
+                // DPAPI 加密写入
+                var enc = ProtectedData.Protect(raw, null, DataProtectionScope.CurrentUser);
+                File.WriteAllBytes(FilePath, enc);
+            }
+            catch
+            {
+                // 不弹窗，避免影响使用
+            }
+        }
     }
 }
