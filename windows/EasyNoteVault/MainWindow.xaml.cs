@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 namespace EasyNoteVault
@@ -22,6 +23,8 @@ namespace EasyNoteVault
         private WebDavSettings _webdavSettings = new WebDavSettings();
         private WebDavSyncService _webdav = null;
         private string _webdavLastDetail = "未启用 WebDAV";
+
+        private DispatcherTimer _toastTimer = null;
 
         public MainWindow()
         {
@@ -40,6 +43,57 @@ namespace EasyNoteVault
                 SaveData();
                 try { if (_webdav != null) _webdav.Dispose(); } catch { }
             };
+
+            _toastTimer = new DispatcherTimer();
+            _toastTimer.Interval = TimeSpan.FromMilliseconds(900);
+            _toastTimer.Tick += (_, _) =>
+            {
+                _toastTimer.Stop();
+                FadeOutToast();
+            };
+        }
+
+        // ================= ✅ Toast：不打断提示 =================
+        private void ShowToast(string message)
+        {
+            try
+            {
+                ToastText.Text = message;
+
+                ToastBorder.Visibility = Visibility.Visible;
+                ToastBorder.Opacity = 1;
+
+                _toastTimer.Stop();
+                _toastTimer.Start();
+            }
+            catch { }
+        }
+
+        private void FadeOutToast()
+        {
+            try
+            {
+                var anim = new DoubleAnimation
+                {
+                    From = 1,
+                    To = 0,
+                    Duration = TimeSpan.FromMilliseconds(280),
+                    FillBehavior = FillBehavior.Stop
+                };
+
+                anim.Completed += (_, _) =>
+                {
+                    ToastBorder.Opacity = 0;
+                    ToastBorder.Visibility = Visibility.Collapsed;
+                };
+
+                ToastBorder.BeginAnimation(UIElement.OpacityProperty, anim);
+            }
+            catch
+            {
+                ToastBorder.Opacity = 0;
+                ToastBorder.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void ForceCommitGridEdits()
@@ -89,10 +143,8 @@ namespace EasyNoteVault
                 var cell = FindVisualParent<DataGridCell>(dep);
                 if (cell == null) return;
 
-                // 表头/空白/只读：不处理
                 if (cell.Column == null || cell.IsReadOnly) return;
 
-                // 如果点在编辑控件上就不抢
                 if (e.OriginalSource is TextBox || e.OriginalSource is PasswordBox)
                     return;
 
@@ -103,30 +155,24 @@ namespace EasyNoteVault
                 VaultGrid.SelectedCells.Clear();
                 VaultGrid.SelectedCells.Add(VaultGrid.CurrentCell);
 
-                // 用 Dispatcher 确保不会卡住鼠标消息
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     VaultGrid.BeginEdit();
                 }), DispatcherPriority.Input);
             }
-            catch
-            {
-                // 不崩
-            }
+            catch { }
         }
 
-        // ================= ✅ 双击：复制单元格内容 =================
+        // ================= ✅ 双击：复制单元格内容（Toast 不打断） =================
         private void VaultGrid_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             try
             {
                 string text = "";
 
-                // 显示状态下常见是 TextBlock
                 if (e.OriginalSource is TextBlock tb)
                     text = tb.Text;
 
-                // 编辑状态下可能是 TextBox
                 if (string.IsNullOrWhiteSpace(text) && e.OriginalSource is TextBox tbox)
                     text = tbox.Text;
 
@@ -134,16 +180,11 @@ namespace EasyNoteVault
                     return;
 
                 Clipboard.SetText(text);
-                MessageBox.Show("已复制", "EasyNoteVault",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ShowToast("已复制");
 
-                // 阻止双击触发其它默认行为
                 e.Handled = true;
             }
-            catch
-            {
-                // 不崩
-            }
+            catch { }
         }
 
         // ================= ✅ 右键菜单打开前：只选中单元格（避免 SelectionUnit=Cell 报错/闪退） =================
